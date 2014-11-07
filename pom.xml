@@ -12,7 +12,7 @@
 	<name>Zarafa plugin</name>
 	<version>1.0.0-SNAPSHOT</version>
 	<scm>
-		<connection>scm:git:ssh://git@stash.dev.lab:7999/IAM/syncserver.git</connection>
+		<connection>scm:git:ssh://git@stash.dev.lab:7999/iam2/plugin-zimbra.git</connection>
 	  <tag>HEAD</tag>
   </scm>
 	<properties>
