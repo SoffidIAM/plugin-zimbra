@@ -9,7 +9,7 @@
 	<groupId>es.caib.seycon.ng.plugins</groupId>
 	<artifactId>zimbra-plugin</artifactId>
 	<packaging>jar</packaging>
-	<name>Zarafa plugin</name>
+	<name>Zimbra plugin</name>
 	<version>1.0.1-SNAPSHOT</version>
 	<scm>
 		<connection>scm:git:ssh://git@stash.dev.lab:7999/iam2/plugin-zimbra.git</connection>
