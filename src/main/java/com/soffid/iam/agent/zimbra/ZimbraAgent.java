@@ -389,7 +389,7 @@ public class ZimbraAgent extends Agent implements UserMgr, MailAliasMgr,
 
 	}
 
-	private boolean existsZimbraAlias(String name) throws IOException,
+	private boolean existsZimbraList(String name) throws IOException,
 			TimedOutException {
 		TimedProcess p = new TimedProcess(TIMEOUT * 2);
 		if (p.exec(new String[] { zimbraAdmin, "-l", "getDistributionList",
@@ -401,6 +401,33 @@ public class ZimbraAgent extends Agent implements UserMgr, MailAliasMgr,
 			else
 				throw new IOException("Error executing " + zimbraAdmin
 						+ " -l getAccount " + name + " :\n" + p.getOutput()+p.getError());
+		}
+	}
+
+	private String getAliasOwner(String name) throws IOException,
+			TimedOutException {
+		TimedProcess p = new TimedProcess(TIMEOUT * 2);
+		String att = "zimbraMailDeliveryAddress";
+		String prefix = att +": ";
+		if (p.exec(new String[] { zimbraAdmin, "-l", "getAccount",
+				name, att }) == 0) {
+			for (String s : p.getOutput().split("\n")) {
+				if (s.startsWith(prefix))
+				{
+					String owner = s.substring(prefix.length());
+					
+					if (! owner.equals(name))
+						return owner;
+				}
+			}
+			return null;
+		} else {
+			if (p.getError().indexOf("NO_SUCH_ACCOUNT") >= 0)
+				return null;
+			else
+				throw new IOException("Error executing " + zimbraAdmin
+						+ " -l getAccount " + name + " :\n" + p.getOutput()
+						+ p.getError());
 		}
 	}
 
@@ -429,11 +456,77 @@ public class ZimbraAgent extends Agent implements UserMgr, MailAliasMgr,
 	public void removeUserAlias(String userKey) throws InternalErrorException {
 	}
 
+	String getUserEmail (String user) throws InternalErrorException, es.caib.seycon.ng.exception.UnknownUserException
+	{
+		Usuari u = getServer().getUserInfo(user, null);
+		for (Account acc : getServer().getUserAccounts(u.getId(),
+				getCodi()))
+		{
+			if (! acc.isDisabled())
+				return acc.getName();
+		}
+		
+		if (u.getDominiCorreu() != null)
+			return u.getNomCurt()+"@"+u.getDominiCorreu();
+		else
+		{
+			DadaUsuari email = getServer().getUserData(u.getId(), "EMAIL");
+			if (email != null && email.getValorDada() != null)
+				return email.getValorDada();
+				
+		}
+		return null;
+	}
+	
 	public void updateListAlias(LlistaCorreu llista)
 			throws InternalErrorException {
 		try {
 			String name = llista.getNom() + "@" + llista.getCodiDomini();
-			if (! existsZimbraAlias(name)) {
+			if (! existsZimbraList(name)) {
+				boolean singleUser = llista.getLlistaExterns().trim().isEmpty() && 
+						llista.getLlistaLlistes().trim().isEmpty() && 
+						!llista.getLlistaUsuaris().trim().contains(",");
+				String owner = singleUser ? getUserEmail (llista.getLlistaUsuaris().trim()): null;
+				
+				String aliasOwner = getAliasOwner(name);
+				if (aliasOwner == null && singleUser && owner != null)
+				{
+					// Create alias
+					LinkedList<String> args = new LinkedList<String>();
+					args.add(zimbraAdmin);
+					args.add("-l");
+					args.add("addAccountAlias");
+					args.add(owner);
+					args.add(name);
+					TimedProcess p = new TimedProcess(TIMEOUT);
+					if (p.exec(args.toArray(new String[args.size()])) != 0) {
+						throw new InternalErrorException("Error executing "
+								+ concat(args) + ":\n" + p.getOutput()+p.getError());
+					}
+					return;
+				}
+				else if (singleUser && owner != null && aliasOwner.equals (owner))
+				{
+					// Nothing to do
+					return;
+				}
+				else if (aliasOwner != null)
+				{
+					// Remove existing alias
+					// Create alias
+					LinkedList<String> args = new LinkedList<String>();
+					args.add(zimbraAdmin);
+					args.add("-l");
+					args.add("removeAccountAlias");
+					args.add(aliasOwner);
+					args.add(name);
+					TimedProcess p = new TimedProcess(TIMEOUT);
+					if (p.exec(args.toArray(new String[args.size()])) != 0) {
+						throw new InternalErrorException("Error executing "
+								+ concat(args) + ":\n" + p.getOutput()+p.getError());
+					}
+					// Now create a normal listt
+				}
 				LinkedList<String> args = new LinkedList<String>();
 				args.add(zimbraAdmin);
 				args.add("-l");
@@ -446,97 +539,103 @@ public class ZimbraAgent extends Agent implements UserMgr, MailAliasMgr,
 				}
 
 			}
-			LinkedList<String> args = new LinkedList<String>();
-			args.add(zimbraAdmin);
-			args.add("-l");
-			args.add("modifyDistributionList");
-			args.add(name);
-			args.add("displayName");
-			args.add(llista.getDescripcio());
-			TimedProcess p = new TimedProcess(TIMEOUT);
-			if (p.exec(args.toArray(new String[args.size()])) != 0) {
-				throw new InternalErrorException("Error executing "
-						+ concat(args) + ":\n" + p.getOutput()+p.getError());
-			}
-			Set<String> current = new HashSet<String>(getZimbraAliasMembers(name));
-			Set<String> newMembers = new HashSet<String>();
-			if (llista.getLlistaExterns().trim().length() > 0 )
-				for (String extern : llista.getLlistaExterns().split("[ ,]+"))
-					newMembers.add(extern);
-
-			if (llista.getLlistaLlistes().trim().length() > 0 )
-				for (String extern : llista.getLlistaLlistes().split("[ ,]+"))
-					newMembers.add(extern);
-
-			if (llista.getLlistaUsuaris().trim().length() > 0 )
-				for (String user : llista.getLlistaUsuaris().split("[ ,]+")) {
-					Usuari u = getServer().getUserInfo(user, null);
-					if (u != null) {
-						boolean found = false;
-					
-						for (Account acc : getServer().getUserAccounts(u.getId(),
-								getCodi())) {
-							newMembers.add(acc.getName());
-							found = true;
-						}
-						if (! found )
-						{
-							if (u.getDominiCorreu() != null)
-								newMembers.add (u.getNomCurt()+"@"+u.getDominiCorreu());
-							else
-							{
-								DadaUsuari email = getServer().getUserData(u.getId(), "EMAIL");
-								if (email != null && email.getValorDada() != null)
-									newMembers.add (email.getValorDada());
-									
-							}
-						}
-					}
-				}
-
-			// Adds new members
-			for (String newMember : newMembers) {
-				if (!current.contains(newMember)) {
-					args = new LinkedList<String>();
-					args.add(zimbraAdmin);
-					args.add("-l");
-					args.add("addDistributionListMember");
-					args.add(name);
-					args.add(newMember);
-					p = new TimedProcess(TIMEOUT);
-					if (p.exec(args.toArray(new String[args.size()])) != 0) {
-						throw new InternalErrorException("Error executing "
-								+ concat(args) + ":\n" + p.getOutput()+p.getError());
-					}
-				} else {
-					current.remove(newMember);
-				}
-			}
-
-			// Removes old members
-			for (String oldMember : current) {
-				args = new LinkedList<String>();
-				args.add(zimbraAdmin);
-				args.add("-l");
-				args.add("removeDistributionListMember");
-				args.add(name);
-				args.add(oldMember);
-				p = new TimedProcess(TIMEOUT);
-				if (p.exec(args.toArray(new String[args.size()])) != 0) {
-					throw new InternalErrorException("Error executing "
-							+ concat(args) + ":\n" + p.getOutput()+p.getError());
-				}
-			}
+			setListAliasMembers(name, llista);
 		} catch (Exception e) {
 			e.printStackTrace();
 			throw new InternalErrorException("Error processing task", e);
 		}
 	}
 
+	private void setListAliasMembers(String name, LlistaCorreu llista)
+			throws IOException, TimedOutException, InternalErrorException,
+			es.caib.seycon.ng.exception.UnknownUserException {
+		LinkedList<String> args = new LinkedList<String>();
+		args.add(zimbraAdmin);
+		args.add("-l");
+		args.add("modifyDistributionList");
+		args.add(name);
+		args.add("displayName");
+		args.add(llista.getDescripcio() == null ? name: llista.getDescripcio() );
+		TimedProcess p = new TimedProcess(TIMEOUT);
+		if (p.exec(args.toArray(new String[args.size()])) != 0) {
+			throw new InternalErrorException("Error executing "
+					+ concat(args) + ":\n" + p.getOutput()+p.getError());
+		}
+		Set<String> current = new HashSet<String>(getZimbraAliasMembers(name));
+		Set<String> newMembers = new HashSet<String>();
+		if (llista.getLlistaExterns().trim().length() > 0 )
+			for (String extern : llista.getLlistaExterns().split("[ ,]+"))
+				newMembers.add(extern);
+
+		if (llista.getLlistaLlistes().trim().length() > 0 )
+			for (String extern : llista.getLlistaLlistes().split("[ ,]+"))
+				newMembers.add(extern);
+
+		if (llista.getLlistaUsuaris().trim().length() > 0 )
+			for (String user : llista.getLlistaUsuaris().split("[ ,]+")) {
+				Usuari u = getServer().getUserInfo(user, null);
+				if (u != null) {
+					boolean found = false;
+				
+					for (Account acc : getServer().getUserAccounts(u.getId(),
+							getCodi())) {
+						newMembers.add(acc.getName());
+						found = true;
+					}
+					if (! found )
+					{
+						if (u.getDominiCorreu() != null)
+							newMembers.add (u.getNomCurt()+"@"+u.getDominiCorreu());
+						else
+						{
+							DadaUsuari email = getServer().getUserData(u.getId(), "EMAIL");
+							if (email != null && email.getValorDada() != null)
+								newMembers.add (email.getValorDada());
+								
+						}
+					}
+				}
+			}
+
+		// Adds new members
+		for (String newMember : newMembers) {
+			if (!current.contains(newMember)) {
+				args = new LinkedList<String>();
+				args.add(zimbraAdmin);
+				args.add("-l");
+				args.add("addDistributionListMember");
+				args.add(name);
+				args.add(newMember);
+				p = new TimedProcess(TIMEOUT);
+				if (p.exec(args.toArray(new String[args.size()])) != 0) {
+					throw new InternalErrorException("Error executing "
+							+ concat(args) + ":\n" + p.getOutput()+p.getError());
+				}
+			} else {
+				current.remove(newMember);
+			}
+		}
+
+		// Removes old members
+		for (String oldMember : current) {
+			args = new LinkedList<String>();
+			args.add(zimbraAdmin);
+			args.add("-l");
+			args.add("removeDistributionListMember");
+			args.add(name);
+			args.add(oldMember);
+			p = new TimedProcess(TIMEOUT);
+			if (p.exec(args.toArray(new String[args.size()])) != 0) {
+				throw new InternalErrorException("Error executing "
+						+ concat(args) + ":\n" + p.getOutput()+p.getError());
+			}
+		}
+	}
+
 	public void removeListAlias(String nomLlista, String domini)
 			throws InternalErrorException {
 		try {
-			if (existsZimbraAlias(nomLlista + "@" + domini)) {
+			if (existsZimbraList(nomLlista + "@" + domini)) {
 				LinkedList<String> args = new LinkedList<String>();
 				args.add(zimbraAdmin);
 				args.add("-l");
