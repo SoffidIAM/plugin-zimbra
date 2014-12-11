@@ -143,6 +143,8 @@ public class ZimbraAgent extends Agent implements UserMgr, MailAliasMgr,
 				args.add("-l");
 				args.add("modifyAccount");
 				args.add(account);
+				args.add("zimbraAccountStatus");
+				args.add("active");
 				args.add("givenName");
 				args.add(usu.getNom());
 				args.add("sn");
@@ -227,6 +229,8 @@ public class ZimbraAgent extends Agent implements UserMgr, MailAliasMgr,
 			args.add(account);
 			args.add("zimbraPasswordMustChange");
 			args.add(mustchange ? "TRUE" : "FALSE");
+			args.add("zimbraPasswordLocked");
+			args.add("FALSE");
 			p = new TimedProcess(TIMEOUT);
 			if (p.exec(args.toArray(new String[args.size()])) != 0) {
 				throw new InternalErrorException("Error executing "
@@ -639,7 +643,7 @@ public class ZimbraAgent extends Agent implements UserMgr, MailAliasMgr,
 				LinkedList<String> args = new LinkedList<String>();
 				args.add(zimbraAdmin);
 				args.add("-l");
-				args.add("removeDistributionList");
+				args.add("deleteDistributionList");
 				args.add(nomLlista + "@" + domini);
 				TimedProcess p = new TimedProcess(TIMEOUT);
 				if (p.exec(args.toArray(new String[args.size()])) != 0) {
