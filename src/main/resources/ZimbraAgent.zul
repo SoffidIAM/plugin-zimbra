@@ -14,5 +14,26 @@
 					width_custom="98%" />
 			</hbox>
 		</row>
+		<row>
+			<input_etiqueta value="Zimbra mailbox tool (zmmailxbox)" />
+			<hbox width="90%">
+				<input_dada bind="@param1" lectura="${!canModifyAgent}"
+					width_custom="98%" />
+			</hbox>
+		</row>
+		<row>
+			<input_etiqueta value="Create alias profile"/>
+			<listbox bind="@param2" mold="select" disabled="{!canModifyAgent}">
+				<listitem value="false" label="false" />
+				<listitem value="true" label="true"></listitem>
+			</listbox>
+		</row>
+		<row>
+			<input_etiqueta value="Fullname expresssion" />
+			<hbox width="90%">
+				<input_dada bind="@param3" lectura="${!canModifyAgent}"
+					width_custom="98%" />
+			</hbox>
+		</row>
 	</rows>
 </grid>

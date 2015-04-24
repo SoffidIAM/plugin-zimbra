@@ -11,4 +11,35 @@
 		<userInterface>ZimbraAgent.zul</userInterface>
 		<enableAccessControl>true</enableAccessControl>
 	</agent>
+
+	<agent>
+		<name>Customizable Zimbra Agent</name>
+		<javaClass>com.soffid.iam.agent.zimbra.CustomizableZimbraAgent</javaClass>
+		<userInterface>CustomZimbraAgent.zul</userInterface>
+		<enableAccessControl>true</enableAccessControl>
+		<enableAttributeMapping>true</enableAttributeMapping>
+
+		<object systemObject="user" soffidObject="user">
+			<mapping
+				soffidAttribute='accountDisabled ? "closed": "active"'
+				systemAttribute='zimbraAccountStatus' direction="out" />
+			<mapping soffidAttribute='fullName' systemAttribute='displayName'
+				direction="inout" />
+			<mapping soffidAttribute='firstName' systemAttribute='givenName'
+				direction="inout" />
+			<mapping soffidAttribute='lastName' systemAttribute='sn'
+				direction="inout" />
+		</object>
+
+		<object systemObject="account" soffidObject="account">
+			<mapping soffidAttribute='accountName' systemAttribute='zimbraAccount'
+				direction="inout" />
+			<mapping
+				soffidAttribute='active ? "active" : "closed"'
+				systemAttribute='zimbraAccountStatus' direction="out" />
+			<mapping soffidAttribute='accountDescription' systemAttribute='displayName'
+				direction="in" />
+		</object>
+
+	</agent>
 </seuServerPlugin>
