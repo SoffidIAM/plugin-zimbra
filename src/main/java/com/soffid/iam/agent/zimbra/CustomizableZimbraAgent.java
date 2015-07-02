@@ -58,6 +58,7 @@ public class CustomizableZimbraAgent extends Agent implements UserMgr, MailAlias
 	private Collection<ExtensibleObjectMapping> objectMappings;
 	private ObjectTranslator translator;
 	public boolean deleteAccounts = false;
+	HashSet<String> mailDomains;
 
 	/**
 	 * Constructor
@@ -92,7 +93,26 @@ public class CustomizableZimbraAgent extends Agent implements UserMgr, MailAlias
 		if (s != null && s.equals("true")) {
 			deleteAccounts = true;
 		}
+		
+		try {
+			mailDomains = getMailDomains ();
+		} catch (Exception e) {
+			throw new InternalErrorException("Error getting mail domains", e);
+		}
 		log.info("Starting Zimbra Agent {}", getDispatcher().getCodi(), null);
+	}
+
+	private HashSet<String> getMailDomains() throws IOException, TimedOutException {
+		TimedProcess p = new TimedProcess(TIMEOUT * 2);
+		if (p.exec(new String[] { zimbraAdmin, "-l", "getAllDomains" }) == 0) {
+			HashSet<String> hs = new HashSet<String>();
+			for (String s: p.getOutput().split("[ ,\n]+") )
+				hs.add(s);
+			return hs;
+		} else {
+			throw new IOException("Error executing " + zimbraAdmin
+						+ " -l getAllDomains:\n" + p.getOutput()+p.getError());
+		}
 	}
 
 	private boolean existsZimbraUser(String name) throws IOException,
@@ -136,11 +156,18 @@ public class CustomizableZimbraAgent extends Agent implements UserMgr, MailAlias
 	public void updateUser(String account, Usuari usu)
 			throws java.rmi.RemoteException,
 			es.caib.seycon.ng.exception.InternalErrorException {
-		Account acc = getServer().getAccountInfo(account, getCodi());
-		updateUser (acc, usu);
+		updateUser (account, usu, null);
 	}
 	
-	public void updateUser(Account acc, Usuari usu)
+	public void updateUser(String account, Usuari usu, Password password)
+			throws java.rmi.RemoteException,
+			es.caib.seycon.ng.exception.InternalErrorException {
+
+		Account acc = getServer().getAccountInfo(account, getCodi());
+		updateUser (acc, usu, password);
+	}
+	
+	public void updateUser(Account acc, Usuari usu, Password password)
 			throws java.rmi.RemoteException,
 			es.caib.seycon.ng.exception.InternalErrorException {
 		try {
@@ -155,7 +182,7 @@ public class CustomizableZimbraAgent extends Agent implements UserMgr, MailAlias
 						
 						if (zimbraObject != null)
 						{
-							updateZimbraAccount(acc.getName(), zimbraObject);
+							updateZimbraAccount(acc.getName(), zimbraObject, password);
 						}
 					}
 					else
@@ -192,7 +219,10 @@ public class CustomizableZimbraAgent extends Agent implements UserMgr, MailAlias
 			throws es.caib.seycon.ng.exception.InternalErrorException {
 		try {
 			if (!existsZimbraUser(account)) {
-				updateUser(account, usuari);
+				if (usuari == null)
+					updateUser(account, account, password);
+				else
+					updateUser(account, usuari, password);
 			}
 			processPasswordChange(account, password, mustchange, false);
 			processPasswordChange(account, password, mustchange, true);
@@ -265,9 +295,9 @@ public class CustomizableZimbraAgent extends Agent implements UserMgr, MailAlias
 		{
 			try {
 				Usuari u = getServer().getUserInfo(account, getCodi());
-				updateUser (acc, u);
+				updateUser (acc, u, null);
 			} catch (UnknownUserException e) {
-				updateUser (acc);
+				updateUser (acc, null);
 			}
 		}
 	}
@@ -325,7 +355,7 @@ public class CustomizableZimbraAgent extends Agent implements UserMgr, MailAlias
 		}
 	}
 
-	public void updateUser(Account acc)
+	public void updateUser(Account acc, Password password)
 			throws RemoteException,
 			es.caib.seycon.ng.exception.InternalErrorException {
 		try {
@@ -340,7 +370,7 @@ public class CustomizableZimbraAgent extends Agent implements UserMgr, MailAlias
 						
 						if (zimbraObject != null)
 						{
-							updateZimbraAccount(acc.getName(), zimbraObject);
+							updateZimbraAccount(acc.getName(), zimbraObject, password);
 						}
 					}
 					else
@@ -357,16 +387,23 @@ public class CustomizableZimbraAgent extends Agent implements UserMgr, MailAlias
 	public void updateUser(String account, String descripcio)
 			throws RemoteException,
 			es.caib.seycon.ng.exception.InternalErrorException {
+		updateUser (account, descripcio, null);
+	}
+	
+	private void updateUser(String account, String descripcio, Password password)
+			throws RemoteException,
+			es.caib.seycon.ng.exception.InternalErrorException {
+
 		Account acc = getServer().getAccountInfo(account, getCodi());
 		if (acc == null)
 			deleteZimbraAccount(account);
 		else
-			updateUser (acc);
+			updateUser (acc, password);
 	
 	}
 
 	private void updateZimbraAccount(String account,
-			ExtensibleObject zimbraObject) throws IOException,
+			ExtensibleObject zimbraObject, Password password) throws IOException,
 			TimedOutException, InternalErrorException {
 		// Comprobar si el usuario existe
 		if (existsZimbraUser(account)) {
@@ -390,13 +427,14 @@ public class CustomizableZimbraAgent extends Agent implements UserMgr, MailAlias
 						+ concat(args) + ":\n" + p.getOutput()+p.getError());
 			}
 		} else {
-			Password pass = getServer().getOrGenerateUserPassword(account,
+			if (password == null)
+				password = getServer().getOrGenerateUserPassword(account,
 					getCodi());
 			LinkedList<String> args = new LinkedList<String>();
 			args.add(zimbraAdmin);
 			args.add("createAccount");
 			args.add(account);
-			args.add(pass.getPassword());
+			args.add(password.getPassword());
 			for (String att: zimbraObject.getAttributes())
 			{
 				args.add(att);
@@ -556,6 +594,9 @@ public class CustomizableZimbraAgent extends Agent implements UserMgr, MailAlias
 	public void updateListAlias(LlistaCorreu llista)
 			throws InternalErrorException {
 		try {
+			if (!  mailDomains.contains( llista.getCodiDomini()) )
+				return;
+			
 			String name = llista.getNom() + "@" + llista.getCodiDomini();
 			if (llista.getLlistaExterns() == null)
 				llista.setLlistaExterns("");
@@ -756,6 +797,9 @@ public class CustomizableZimbraAgent extends Agent implements UserMgr, MailAlias
 	public void removeListAlias(String nomLlista, String domini)
 			throws InternalErrorException {
 		try {
+			if (!  mailDomains.contains( domini) )
+				return;
+
 			if (existsZimbraList(nomLlista + "@" + domini)) {
 				LinkedList<String> args = new LinkedList<String>();
 				args.add(zimbraAdmin);
