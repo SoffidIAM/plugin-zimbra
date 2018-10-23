@@ -10,7 +10,7 @@
 	<artifactId>zimbra-plugin</artifactId>
 	<packaging>jar</packaging>
 	<name>Zimbra plugin</name>
-	<version>1.0.7-SNAPSHOT</version>
+	<version>1.0.7</version>
 	<scm>
 		<connection>scm:git:ssh://git@stash.dev.lab:7999/iam2/plugin-zimbra.git</connection>
 	  <tag>HEAD</tag>
