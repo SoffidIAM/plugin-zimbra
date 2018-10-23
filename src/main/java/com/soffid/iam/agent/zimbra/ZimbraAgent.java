@@ -213,7 +213,7 @@ public class ZimbraAgent extends Agent implements UserMgr, MailAliasMgr,
 			args.add(password.getPassword());
 			TimedProcess p = new TimedProcess(TIMEOUT);
 			if (p.exec(args.toArray(new String[args.size()])) != 0) {
-				args.remove(4);
+				args.remove(3);
 				throw new InternalErrorException("Error executing "
 						+ concat(args) + ":\n" + p.getOutput()+p.getError());
 			}
