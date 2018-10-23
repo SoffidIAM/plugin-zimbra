@@ -890,4 +890,14 @@ public class CustomizableZimbraAgent extends Agent implements UserMgr, MailAlias
 		}
 			
 	}
+
+	public ExtensibleObject getNativeObject(SoffidObjectType type, String object1, String object2)
+			throws RemoteException, InternalErrorException {
+		return null;
+	}
+
+	public ExtensibleObject getSoffidObject(SoffidObjectType type, String object1, String object2)
+			throws RemoteException, InternalErrorException {
+		return null;
+	}
 }
