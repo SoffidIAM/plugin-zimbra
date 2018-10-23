@@ -10,7 +10,7 @@
 	<artifactId>zimbra-plugin</artifactId>
 	<packaging>jar</packaging>
 	<name>Zimbra plugin</name>
-	<version>1.0.4-SNAPSHOT</version>
+	<version>1.0.7-SNAPSHOT</version>
 	<scm>
 		<connection>scm:git:ssh://git@stash.dev.lab:7999/iam2/plugin-zimbra.git</connection>
 	  <tag>HEAD</tag>
@@ -23,7 +23,7 @@
 		<dependency>
 			<groupId>com.soffid.iam.sync</groupId>
 			<artifactId>syncserver</artifactId>
-			<version>1.6.0</version>
+			<version>2.0.0</version>
 		</dependency>
 	</dependencies>
 </project>
